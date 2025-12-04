@@ -9,7 +9,7 @@ import ConfirmRoutes from './routes/confirmation.route.js'
 const app = express();
 
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: "https://foodsalesproducts.netlify.app/",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
