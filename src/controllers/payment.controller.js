@@ -65,7 +65,7 @@ export const createPayment = async (req, res) => {
       operatorId,
       amount: Number(amount),
       currency: activeCart.currency || "MWK",
-      status: response.data?.status || "pending",
+      status: "pending",
       rawResponse: response.data
     });
 
@@ -133,3 +133,61 @@ export const getPaymentDetails = async (req, res) => {
     });
   }
 };
+
+
+export const paymentCallback = async (req, res) => {
+  try {
+    const data = req.body;
+
+    console.log("Paychangu callback received:", data);
+
+    // Find the payment record by chargeId
+    const payment = await Payment.findOne({ chargeId: data.charge_id });
+    if (!payment) {
+      return res.status(404).json({ message: "Payment not found" });
+    }
+
+    // Update payment status based on callback
+    payment.status = data.status; // e.g., "success", "failed", "pending"
+    payment.rawResponse = data;
+
+    await payment.save();
+
+    return res.status(200).json({ message: "Payment updated successfully" });
+  } catch (err) {
+    console.error("Payment callback error:", err);
+    return res.status(500).json({ message: "Failed to process payment callback" });
+  }
+};
+
+
+// controllers/payment.controller.js
+export const backupPaymentConfirmation = async (req, res) => {
+  try {
+    const { chargeId, status, amount, userId } = req.body;
+
+    if (!chargeId) {
+      return res.status(400).json({ message: "chargeId is required" });
+    }
+
+    const updated = await Payment.findOneAndUpdate(
+      { chargeId },
+      { status, amount, fallback: true },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Payment not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment updated using fallback",
+      payment: updated
+    });
+  } catch (err) {
+    console.error("Backup update error:", err.message);
+    res.status(500).json({ message: "Backup update failed" });
+  }
+};
+

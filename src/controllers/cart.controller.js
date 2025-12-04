@@ -23,6 +23,7 @@ export const getCart = async (req, res) => {
 export const updateCart = async (req, res) => {
   try {
     const { items, totalamount, currency } = req.body;
+    console.log(req.body)
 
     if (!items || Object.keys(items).length === 0) {
       return res.status(400).json({ message: "Cart items are required" });
@@ -63,6 +64,7 @@ export const updateCart = async (req, res) => {
     });
 
   } catch (err) {
+    console.log(err)
     console.error(err);
     res.status(500).json({
       message: "Failed to update cart",

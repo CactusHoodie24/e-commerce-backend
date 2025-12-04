@@ -11,13 +11,9 @@ const router = express.Router();
 // captureResponse stores successful (200) JSON response at
 // `res.locals.capturedResponse`. `useCaptured` runs after the controller
 // to process that payload (log, persist, notify, etc.).
-router.post("/pay", captureResponse, createPayment, useCaptured);
 
-// Retrieve payment details by paymentId
-router.get("/payment-processing/:paymentId", getPaymentDetails);
-
-router.post("/callback", paymentCallback);
 
 router.post("/backup-confirm", backupPaymentConfirmation);
+
 
 export default router;
