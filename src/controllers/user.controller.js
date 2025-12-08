@@ -22,11 +22,24 @@ export const createUser = async (req, res) => {
       { expiresIn: "1d" }
     );
 
+    // Cookie settings - environment aware
+    // In production (HTTPS): secure=true, sameSite=None for cross-origin (most cloud deployments)
+    // In development (HTTP): secure=false, sameSite=Lax
+    // Detect production: check NODE_ENV or if request is via HTTPS (Render uses HTTPS)
+    const isProduction = process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https';
+    const isSecure = process.env.COOKIE_SECURE !== 'false' && isProduction; // true in production by default
+    // Default to 'None' in production for cross-origin support (common in cloud deployments)
+    // Use 'Lax' if explicitly set, or if frontend/backend are on same domain
+    const sameSiteValue = process.env.COOKIE_SAME_SITE || 
+      (isProduction ? 'None' : 'Lax'); // None requires secure: true (which we have in production)
+    
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false,
-      sameSite: "Strict",
-      maxAge: 15 * 60 * 1000
+      secure: isSecure, // true in production (HTTPS required for sameSite=None), false in development
+      sameSite: sameSiteValue, // None for cross-origin in production, Lax in development
+      maxAge: 24 * 60 * 60 * 1000, // 1 day (matches JWT expiration)
+      path: '/', // Ensure cookie is available for all paths
+      ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
     })
 
      // Send back token + user data (omit password)
@@ -55,11 +68,24 @@ export const loginUser = async (req, res) => {
     // Issue token
     const token = jwt.sign({ id: user._id, name: user.name, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
+    // Cookie settings - environment aware
+    // In production (HTTPS): secure=true, sameSite=None for cross-origin (most cloud deployments)
+    // In development (HTTP): secure=false, sameSite=Lax
+    // Detect production: check NODE_ENV or if request is via HTTPS (Render uses HTTPS)
+    const isProduction = process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https';
+    const isSecure = process.env.COOKIE_SECURE !== 'false' && isProduction; // true in production by default
+    // Default to 'None' in production for cross-origin support (common in cloud deployments)
+    // Use 'Lax' if explicitly set, or if frontend/backend are on same domain
+    const sameSiteValue = process.env.COOKIE_SAME_SITE || 
+      (isProduction ? 'None' : 'Lax'); // None requires secure: true (which we have in production)
+    
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false,
-      sameSite: "Strict",
-      maxAge: 15 * 60 * 1000
+      secure: isSecure, // true in production (HTTPS required for sameSite=None), false in development
+      sameSite: sameSiteValue, // None for cross-origin in production, Lax in development
+      maxAge: 24 * 60 * 60 * 1000, // 1 day (matches JWT expiration)
+      path: '/', // Ensure cookie is available for all paths
+      ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
     })
 
     res.json({
