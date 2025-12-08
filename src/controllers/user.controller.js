@@ -1,7 +1,8 @@
-import { createUserService, getUsersService } from "../services/user.service.js";
+import { createUserService} from "../services/user.service.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+
 
 export const createUser = async (req, res) => {
   try {
@@ -21,15 +22,16 @@ export const createUser = async (req, res) => {
       { expiresIn: "1d" }
     );
 
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "Strict",
+      maxAge: 15 * 60 * 1000
+    })
+
      // Send back token + user data (omit password)
     res.status(201).json({
       message: "User created successfully",
-      data: {
-        _id: user._id,
-        name: user.name,
-        email: user.email
-      },
-      token
     });
     
   } catch (error) {
@@ -41,7 +43,7 @@ export const createUser = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
+    console.log(req.body)
     // Find user
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -53,10 +55,15 @@ export const loginUser = async (req, res) => {
     // Issue token
     const token = jwt.sign({ id: user._id, name: user.name, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "Strict",
+      maxAge: 15 * 60 * 1000
+    })
+
     res.json({
       message: "Login successful",
-      data: { _id: user._id, name: user.name, email: user.email },
-      token
     });
   } catch (error) {
     console.error(error);

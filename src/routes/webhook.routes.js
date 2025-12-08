@@ -2,11 +2,12 @@
 import express from "express";
 import Payment from "../models/payment.model.js";
 import crypto from "crypto";
+import authenticateuser from "../middleware/auth.middleware.js";
 
 
 const router = express.Router();
 
-router.post("/paychangu" , async (req, res) => {
+router.post("/paychangu", async (req, res) => {
  try {
   console.log("Headers:", req.headers);
 console.log("Raw body string:", req.rawBody.toString());

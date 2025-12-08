@@ -3,6 +3,7 @@ import express from "express";
 import { createPayment, getPaymentDetails, paymentCallback, backupPaymentConfirmation } from "../controllers/payment.controller.js";
 import captureResponse from "../middleware/captureResponse.middleware.js";
 import useCaptured from "../middleware/useCaptured.middleware.js";
+import authenticateuser from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ const router = express.Router();
 // to process that payload (log, persist, notify, etc.).
 
 
-router.post("/backup-confirm", backupPaymentConfirmation);
+router.post("/backup-confirm", authenticateuser, backupPaymentConfirmation);
 
 
 export default router;

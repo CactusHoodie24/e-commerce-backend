@@ -19,6 +19,7 @@
     "@api/paychangu": "file:.api/apis/paychangu",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "jsonwebtoken": "^9.0.2"
