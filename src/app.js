@@ -66,14 +66,22 @@ app.use("/api/payment", paymentRoute);
 app.use("/api/confirm", ConfirmRoutes)
 
 app.get("/api/auth/me", authenticateUser, (req, res) => {
-  // req.user is added by JWT middleware after verifying token
   res.json({ user: req.user });
 });
 
+const isProduction = process.env.NODE_ENV === "production";
 
-app.post('/api/users/test', (req, res) => {
-  res.json({ message: 'Test route works' });
+app.post("/api/logout", (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: isProduction,        // only use HTTPS in production
+    sameSite: isProduction ? "strict" : "lax", // 'lax' works in dev
+    path: "/",                   // ensure the cookie path matches where it was set
+  });
+
+  return res.json({ message: "Logged out successfully" });
 });
+
 
 
 export default app;
