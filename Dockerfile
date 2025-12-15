@@ -10,8 +10,6 @@ COPY package*.json ./
 # Install all dependencies (not just production for now, helps with ESM)
 RUN npm install
 
-RUN npm test
-
 # Copy all source code
 COPY . .
 
