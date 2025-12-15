@@ -1,93 +1,132 @@
 // controllers/cart.controller.js
-import Cart from "../models/cart.model.js";
+import { CartService } from "../services/cart.service.js"
+import { CartRepository } from "../lib/cart.repository.js"
 
-// Get the active cart for a user
+const cartService = new CartService(new CartRepository())
+
+
+/**
+ * @swagger
+ * /cart/{userId}:
+ *   get:
+ *     summary: Get active cart for a user
+ *     tags:
+ *       - Cart
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the user
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved active cart
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 totalamount:
+ *                   type: number
+ *                 currency:
+ *                   type: string
+ *       500:
+ *         description: Internal server error
+ */
+
 export const getCart = async (req, res) => {
   try {
-    const cart = await Cart.findOne({
-      userId: req.params.userId,
-      status: "active"
-    });
-
-    res.status(200).json(cart || { items: [], totalamount: 0, currency: "MWK" });
+    const cart = await cartService.getCart(req.params.userId)
+    res.status(200).json(cart.toJSON())
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      message: "Failed to fetch cart",
-      error: err.message
-    });
+    res.status(500).json({ error: err.message })
   }
-};
+}
 
-// Update or create cart (runs at checkout)
+/**
+ * @swagger
+ * /cart/{userId}:
+ *   put:
+ *     summary: Update or create a cart for a user
+ *     tags:
+ *       - Cart
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the user
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     itemId:
+ *                       type: string
+ *                     quantity:
+ *                       type: number
+ *               currency:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Cart saved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 cart:
+ *                   type: object
+ *                   properties:
+ *                     items:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     totalamount:
+ *                       type: number
+ *                     currency:
+ *                       type: string
+ *       400:
+ *         description: Bad request
+ *       500:
+ *         description: Internal server error
+ */
+
+
 export const updateCart = async (req, res) => {
   try {
-    const { items, totalamount, currency } = req.body;
-    console.log(req.body)
-
-    if (!items || Object.keys(items).length === 0) {
-      return res.status(400).json({ message: "Cart items are required" });
-    }
-
-    if (!totalamount) {
-      return res.status(400).json({ message: "Total amount is required" });
-    }
-
-    // Convert { id: qty } into array objects
-    const cartItems = Object.entries(items).map(([itemId, quantity]) => ({
-      itemId,
-      quantity
-    }));
-
-    let cart = await Cart.findOne({
-      userId: req.params.userId,
-      status: "active"
-    });
-
-    if (cart) {
-      cart.items = cartItems;
-      cart.totalamount = totalamount;
-      cart.currency = currency || "MWK";
-      await cart.save();
-    } else {
-      cart = await Cart.create({
-        userId: req.params.userId,
-        items: cartItems,
-        totalamount,
-        currency: currency || "MWK"
-      });
-    }
-
-    res.status(200).json({
-      message: "Cart saved successfully",
-      cart
-    });
-
+    const { items, currency } = req.body
+    const cart = await cartService.updateCart(
+      req.params.userId,
+      items,
+      currency
+    )
+    res.json(cart)
   } catch (err) {
-    console.log(err)
-    console.error(err);
-    res.status(500).json({
-      message: "Failed to update cart",
-      error: err.message
-    });
+    res.status(400).json({ error: err.message })
   }
-};
+}
 
-// Clear cart after order is completed
 export const clearCart = async (req, res) => {
   try {
-    const cart = await Cart.findOneAndUpdate(
-      { userId: req.params.userId, status: "active" },
-      { status: "completed", items: [] },
-      { new: true }
-    );
-
-    res.status(200).json(cart || { message: "No active cart to clear" });
+    const cart = await cartService.clearCart(req.params.userId)
+    res.json(cart)
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      message: "Failed to clear cart",
-      error: err.message
-    });
+    res.status(500).json({ error: err.message })
   }
-};
+}

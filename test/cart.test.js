@@ -32,7 +32,8 @@ describe("GET /api/cart/:userId", () => {
 
     const res = await request(app).get("/api/cart/1").set("Cookie", ["token=fakejwt123"]);;
 
-    expect(res.status).to.equal(200);
+    expect(res.status).to.equal(200, `Body: ${JSON.stringify(res.body)} | Text: ${res.text}`);
+    console.log(res.status, res.body, res.text)
     expect(res.body).to.deep.equal(fakeCart);
   });
 });

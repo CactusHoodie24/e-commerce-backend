@@ -7,14 +7,12 @@ import webhookRoutes from "./routes/webhook.routes.js";
 import ConfirmRoutes from './routes/confirmation.route.js'
 import authenticateUser from "./middleware/auth.middleware.js";
 import cookieParser from "cookie-parser";
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from 'swagger-jsdoc';
 
 
 const app = express();
 
-// CORS configuration - supports different origins for development and production
-// Development: defaults to http://localhost:5173
-// Production: Set ALLOWED_ORIGINS in .env (comma-separated for multiple origins)
-// Example: ALLOWED_ORIGINS=http://localhost:5173,https://yourdomain.com
 const getAllowedOrigins = () => {
   if (process.env.ALLOWED_ORIGINS) {
     // Support multiple origins separated by commas
@@ -58,6 +56,28 @@ app.use(
 app.use(express.json());
 
 app.use(cookieParser());
+
+
+// Swagger definition
+const options = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "Food E-commerce Backend",
+      version: "1.0.0",
+      description: "API documentation for Food App",
+    },
+    servers: [
+      { url: "http://localhost:5000/api" } // base URL
+    ],
+  },
+  apis: ["./src/controllers/*.js"], // files containing JSDoc comments
+};
+
+const swaggerSpec = swaggerJsdoc(options);
+
+// Swagger UI route
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ✔️ Your normal routes
 app.use("/api/users", userRoutes);
