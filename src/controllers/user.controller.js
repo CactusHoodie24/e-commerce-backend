@@ -43,7 +43,7 @@ export const createUser = async (req, res) => {
     })
 
      // Send back token + user data (omit password)
-    res.status(201).json({
+    res.status(200).json({
       message: "User created successfully",
     });
     
