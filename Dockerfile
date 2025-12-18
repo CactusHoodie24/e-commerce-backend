@@ -4,11 +4,12 @@ FROM node:18-alpine
 # Set work directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json if it exists
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install all dependencies (not just production for now, helps with ESM)
 RUN npm install
+
+# Install nodemon globally (for live reload)
+RUN npm install -g nodemon
 
 # Copy all source code
 COPY . .
@@ -16,8 +17,5 @@ COPY . .
 # Expose API port
 EXPOSE 3000
 
-# Set environment variable
-ENV NODE_ENV=production
-
-# Start the app
-CMD ["node", "server.js"]
+# Start app with nodemon for development
+CMD ["nodemon", "server.js"]

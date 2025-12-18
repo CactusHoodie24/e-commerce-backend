@@ -3,95 +3,42 @@ import axios from "axios";
 import crypto from "crypto";
 import Cart from "../models/cart.model.js";
 import Payment from "../models/payment.model.js";
+import { PaymentService } from "../services/payment.service.js"
+import { PaymentRepository } from "../lib/payment.repository.js"
+import { CartRepository } from "../lib/cart.repository.js"
+import { PaychanguProvider } from "../providers/paychangu.provider.js"
+
 
 export const createPayment = async (req, res) => {
   try {
-    const { userId, email, name, amount, mobile, provider } = req.body;
+    const paymentService = new PaymentService(
+  new CartRepository(),
+  new PaymentRepository(),
+  new PaychanguProvider(
+    process.env.PAYCHANGU_SECRET,
+    process.env.PAYCHANGU_API_URL
+  )
+)
 
-    if (!userId) {
-      return res.status(400).json({ message: "User ID is required" });
-    }
-
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ message: "Invalid cart total amount" });
-    }
-
-    if (!mobile || !provider) {
-      return res.status(400).json({ message: "Mobile number and provider are required" });
-    }
-
-    // Confirm that the user actually has an active cart
-    const activeCart = await Cart.findOne({ userId, status: "active" });
-    if (!activeCart) {
-      return res.status(404).json({ message: "No active cart found for this user" });
-    }
-
-    // Generate unique charge ID for PayChangu
-    const chargeId = crypto.randomBytes(6).toString("hex").toUpperCase();
-
-    // Select Mobile Money Provider
-    const operatorId =
-      provider === "airtel"
-        ? "20be6c20-adeb-4b5b-a7ba-0769820df4fb"
-        : "c2be9bd0-a8b4-4fbd-9966-1b7cfe00a343"; // TNM example
-
-    // Create mobile money charge via direct API call
-    const response = await axios.post(
-      `${process.env.PAYCHANGU_API_URL}`,
-      {
-        mobile_money_operator_ref_id: operatorId,
-        mobile,
-        amount: amount.toString(),
-        charge_id: chargeId,
-        email: email,
-        first_name: name,
-        last_name: name,
-        metadata: { userId }
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.PAYCHANGU_SECRET}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    // Persist payment to MongoDB before responding
-    const paymentDoc = await Payment.create({
-      userId,
-      cartId: activeCart._id,
-      chargeId,
-      provider,
-      operatorId,
-      amount: Number(amount),
-      currency: activeCart.currency || "MWK",
-      status: "pending",
-      rawResponse: response.data
-    });
-
-    console.log("Payment created in MongoDB:", { id: paymentDoc._id?.toString(), chargeId, userId });
-
-    return res.status(200).json({
+    const payment = await paymentService.createPayment(req.body)
+     console.log("Payment created in MongoDB:", { id: payment._id?.toString(), chargeId: payment.chargeId, userId: payment.userId });
+      return res.status(200).json({
       success: true,
       message: "Payment initiated",
-      userId,
-      chargeId,
-      cartId: activeCart._id,
-      paymentId: paymentDoc._id,
-      paychangu: response.data,
-    });
-
- 
-
+      userId: payment.userId,
+      chargeId: payment.chargeId,
+      paymentId: payment._id,
+      cartId: payment.cartId,
+      paychangu: payment.rawResponse
+    })
   } catch (err) {
-    console.error("Payment error:", err.response?.data || err.message);
-    res.status(500).json({
-      success: false,
-      message: "Payment failed to start",
-      error: err.response?.data || err.message,
-    });
-  }
-};
+    console.error("❌ PAYMENT CREATE ERROR");
+  console.error("Message:", err.message);
+  console.error("Stack:", err.stack);
+    res.status(400).json({ error: err.message })
+  } 
+}
+
 
 export const getPaymentDetails = async (req, res) => {
   try {

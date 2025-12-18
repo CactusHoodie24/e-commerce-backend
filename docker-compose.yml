@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"         # Maps container port 3000 to your PC
+    env_file:
+      - .env 
+    volumes:
+      - .:/app               # Live reload for development
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:7
+    restart: always
+    ports:
+      - "27017:27017"        # Optional: access MongoDB from host
+    volumes:
+      - mongo-data:/data/db  # Persist data
+
+volumes:
+  mongo-data:
