@@ -1,9 +1,10 @@
 // routes/payment.routes.js
 import express from "express";
-import { createPayment, getPaymentDetails, paymentCallback, backupPaymentConfirmation, getUserTransactions } from "../controllers/payment.controller.js";
+import { createPayment, getPaymentDetails, paymentCallback, backupPaymentConfirmation, getUserTransactions, getPaymentStatus } from "../controllers/payment.controller.js";
 import captureResponse from "../middleware/captureResponse.middleware.js";
 import useCaptured from "../middleware/useCaptured.middleware.js";
 import authenticateuser from "../middleware/auth.middleware.js";
+import { idempotencyMiddleware } from "../middleware/idempotentKey.middleware.js";
 
 const router = express.Router();
 
@@ -23,5 +24,7 @@ router.get("/transactions", authenticateuser, getUserTransactions);
 router.post("/callback", paymentCallback);
 
 router.post("/backup-confirm", backupPaymentConfirmation);
+
+router.get("/status", idempotencyMiddleware, getPaymentStatus)
 
 export default router;

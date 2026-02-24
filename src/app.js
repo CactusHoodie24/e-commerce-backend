@@ -78,8 +78,6 @@ const swaggerSpec = swaggerJsdoc(options);
 
 // Swagger UI route
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-// ✔️ Your normal routes
 app.use("/api/users", userRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/payment", paymentRoute);

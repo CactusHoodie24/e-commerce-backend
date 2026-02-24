@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 const paymentSchema = new mongoose.Schema({
+  transactionId: { type: String, unique: true, required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
   cartId: { type: mongoose.Schema.Types.ObjectId, ref: "Cart", required: false },
   chargeId: { type: String, required: false },
@@ -11,5 +12,7 @@ const paymentSchema = new mongoose.Schema({
   status: { type: String, required: false },
   rawResponse: { type: mongoose.Schema.Types.Mixed },
 }, { timestamps: true });
+
+paymentSchema.index({ transactionId: 1, chargeId: 1 }, { unique: true });
 
 export default mongoose.model("Payment", paymentSchema);

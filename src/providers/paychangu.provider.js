@@ -7,7 +7,8 @@ export class PaychanguProvider {
   }
 
   async initiateMobileMoney({ operatorId, mobile, amount, chargeId, email, name, metadata }) {
-    const response = await axios.post(
+    try {
+      const response = await axios.post(
       this.apiUrl,
       {
         mobile_money_operator_ref_id: operatorId,
@@ -26,8 +27,12 @@ export class PaychanguProvider {
         }
       }
     )
-
     return response.data
+    }catch(error) {
+      console.log("Status:", error.response?.status)
+  console.log("Data:", error.response?.data)
+  throw error
+    }
   }
 
   async verify(chargeId) {

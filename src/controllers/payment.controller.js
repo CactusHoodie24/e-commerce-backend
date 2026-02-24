@@ -7,7 +7,8 @@ import { PaymentService } from "../services/payment.service.js"
 import { PaymentRepository } from "../lib/payment.repository.js"
 import { CartRepository } from "../lib/cart.repository.js"
 import { PaychanguProvider } from "../providers/paychangu.provider.js"
-
+import IdempotencyRepository from "../lib/idempotentKeyRepository.js";
+import IdempotencyModel from "../models/idempotency.model.js";
 
 export const createPayment = async (req, res) => {
   try {
@@ -17,7 +18,8 @@ export const createPayment = async (req, res) => {
   new PaychanguProvider(
     process.env.PAYCHANGU_SECRET,
     process.env.PAYCHANGU_API_URL
-  )
+  ),
+  new IdempotencyRepository(IdempotencyModel)
 )
 
     const payment = await paymentService.createPayment(req.body)
@@ -155,6 +157,7 @@ export const paymentCallback = async (req, res) => {
 export const backupPaymentConfirmation = async (req, res) => {
   try {
     const { chargeId } = req.body;
+    console.log(chargeId)
 
     if (!chargeId) {
       return res.status(400).json({ message: "chargeId is required" });
@@ -288,3 +291,53 @@ export const backupPaymentConfirmation = async (req, res) => {
   }
 };
 
+export const getPaymentStatus = async (req, res) => {
+  try {
+    const userId = req.query.userId; // from Axios params
+    const idempotencyKey = req.headers['idempotency-key']; // Express lowercases headers
+    console.log("userId:", userId, "idempotencyKey:", idempotencyKey);
+
+    if (!idempotencyKey) {
+      return res.status(400).json({ status: "MISSING_KEY", message: "Idempotency key is required" });
+    }
+    if (!userId) {
+      return res.status(400).json({ status: "MISSING_USER", message: "User ID is required" });
+    }
+
+    // Instantiate repositories/providers
+    const paymentService = new PaymentService(
+      new CartRepository(),           // cartRepository
+      new PaymentRepository(),        // paymentRepository
+      new PaychanguProvider(
+        process.env.PAYCHANGU_SECRET,
+        process.env.PAYCHANGU_API_URL
+      ),
+      new IdempotencyRepository(IdempotencyModel)     // idempotencyRepository
+    );
+
+    // Check idempotency status
+    const record = await paymentService.checkStatus(idempotencyKey, userId);
+
+    if (!record) {
+      return res.json({ status: "NOT_FOUND", message: "No payment found for this key" });
+    }
+
+    // Determine the status based on the record
+    let status;
+    if (record.isTerminal && record.isTerminal()) {
+      status = "SUCCESS";
+    } else {
+      status = "IN_PROGRESS";
+    }
+
+    return res.json({
+      status,
+      paymentId: record?.responseBody?.paymentId || null,
+      info: record
+    });
+
+  } catch (err) {
+    console.error("Get payment status error:", err);
+    res.status(500).json({ status: "ERROR", message: err.message });
+  }
+};

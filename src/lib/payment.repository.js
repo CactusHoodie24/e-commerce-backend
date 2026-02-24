@@ -1,11 +1,16 @@
 import PaymentModel from "../models/payment.model.js"
 
 export class PaymentRepository {
- async save(payment) {
-    // Wrap in Mongoose model if it isn’t already
-    const paymentDoc = payment instanceof PaymentModel ? payment : new PaymentModel(payment);
-    return await paymentDoc.save(); // This returns the saved doc with _id
-  }
+async save(payment) {
+  // First check if payment with same transactionId already exists
+  const existing = await PaymentModel.findOne({ transactionId: payment.transactionId });
+  if (existing) return existing; // replay existing payment
+
+  // Wrap in model if not already
+  const paymentDoc = payment instanceof PaymentModel ? payment : new PaymentModel(payment);
+  return await paymentDoc.save(); // actually save new payment
+}
+
 
 
   async findByChargeId(chargeId) {
