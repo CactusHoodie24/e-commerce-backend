@@ -1,6 +1,18 @@
 import crypto from "crypto"
 import { Payment } from "../domain/payment.js"
 
+/** PayChangu returns the canonical charge id under `data` (may differ from the id we sent). */
+function chargeIdFromPaychanguInitResponse(body) {
+  if (!body || typeof body !== "object") return null
+  const id =
+    body.data?.charge_id ??
+    body.data?.chargeId ??
+    body.charge_id ??
+    body.chargeId
+  if (id == null || String(id).trim() === "") return null
+  return String(id).trim().toUpperCase()
+}
+
 export class PaymentService {
   constructor(cartRepository, paymentRepository, paymentProvider, idempotencyRepository) {
     this.cartRepository = cartRepository
@@ -86,6 +98,9 @@ if (existing.status === "FAILED") {
         metadata: { userId }
       });
       console.log(response)
+
+      const providerChargeId = chargeIdFromPaychanguInitResponse(response)
+      const persistedChargeId = providerChargeId ?? chargeId
   
       const payment = new Payment({
         transactionId: idempotencyKey,
@@ -95,7 +110,7 @@ if (existing.status === "FAILED") {
         currency: cart.currency,
         provider,
         operatorId,
-        chargeId,
+        chargeId: persistedChargeId,
         rawResponse: response
       });
   

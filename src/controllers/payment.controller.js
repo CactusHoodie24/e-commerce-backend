@@ -12,6 +12,23 @@ import IdempotencyModel from "../models/idempotency.model.js";
 
 export const createPayment = async (req, res) => {
   try {
+    const fromBody =
+      typeof req.body?.idempotencyKey === "string"
+        ? req.body.idempotencyKey.trim()
+        : "";
+    const fromHeader =
+      typeof req.headers["idempotency-key"] === "string"
+        ? req.headers["idempotency-key"].trim()
+        : "";
+    const idempotencyKey = fromBody || fromHeader;
+
+    if (!idempotencyKey) {
+      return res.status(400).json({
+        error:
+          "idempotencyKey is required (JSON body field or Idempotency-Key header)",
+      });
+    }
+
     const paymentService = new PaymentService(
   new CartRepository(),
   new PaymentRepository(),
@@ -22,7 +39,10 @@ export const createPayment = async (req, res) => {
   new IdempotencyRepository(IdempotencyModel)
 )
 
-    const payment = await paymentService.createPayment(req.body)
+    const payment = await paymentService.createPayment({
+      ...req.body,
+      idempotencyKey,
+    })
      console.log("Payment created in MongoDB:", { id: payment._id?.toString(), chargeId: payment.chargeId, userId: payment.userId });
       return res.status(200).json({
       success: true,

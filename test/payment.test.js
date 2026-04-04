@@ -55,6 +55,7 @@ describe("POST /payment", () => {
   });
 
   it("should create a payment successfully", async () => {
+    const idempotencyKey = `test-pay-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const paymentRequest = {
       userId: userObjectId.toString(),
       email: "test@test.com",
@@ -62,12 +63,14 @@ describe("POST /payment", () => {
       amount: 500,
       mobile: "0888888888",
       provider: "tnm",
+      idempotencyKey,
     };
 
     const res = await request(app)
       .post("/api/payment/pay")
       .send(paymentRequest)
-      .set("Cookie", ["token=fakejwt"]);
+      .set("Cookie", ["token=fakejwt"])
+      .set("Idempotency-Key", idempotencyKey);
 
     // ✅ Assertions
     expect(res.status).to.equal(200);

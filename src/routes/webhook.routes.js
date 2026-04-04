@@ -2,10 +2,32 @@
 import express from "express";
 import Payment from "../models/payment.model.js";
 import crypto from "crypto";
-import authenticateuser from "../middleware/auth.middleware.js";
-
 
 const router = express.Router();
+
+/** PayChangu may send charge_id at top level, camelCase, or under data. */
+function extractChargeId(data) {
+  if (!data || typeof data !== "object") return null;
+  const top = data.charge_id ?? data.chargeId;
+  if (top != null && String(top).trim() !== "") return String(top).trim();
+  const nested =
+    data.data?.charge_id ??
+    data.data?.chargeId ??
+    data.payload?.charge_id ??
+    data.payload?.chargeId;
+  if (nested != null && String(nested).trim() !== "") return String(nested).trim();
+  return null;
+}
+
+function extractStatus(data) {
+  if (!data || typeof data !== "object") return null;
+  return (
+    data.status ??
+    data.data?.status ??
+    data.payload?.status ??
+    null
+  );
+}
 
 router.post("/paychangu", async (req, res) => {
  try {
@@ -25,16 +47,38 @@ console.log("Raw body string:", req.rawBody.toString());
     }
 
     const data = JSON.parse(rawBody);
-    const chargeId = data.charge_id;   // note the underscore
-    const status = data.status;  
+    const chargeIdRaw = extractChargeId(data);
+    // Match initiate flow: PaymentService stores chargeId as uppercase 12-char hex
+    const chargeId = chargeIdRaw ? chargeIdRaw.toUpperCase() : null;
+    const status = extractStatus(data);
 
-    const payment = await Payment.findOneAndUpdate(
+    if (!chargeId) {
+      console.warn("⚠️ Webhook missing charge_id (checked charge_id, chargeId, data.*):", Object.keys(data));
+      return res.status(400).json({ message: "Invalid webhook payload: missing charge id" });
+    }
+
+    const update = { rawResponse: data };
+    if (status != null && status !== "") update.status = status;
+
+    // Try exact match first, then case-insensitive (legacy / provider casing)
+    let payment = await Payment.findOneAndUpdate(
       { chargeId },
-      { status, rawWebhook: data },
+      update,
       { new: true }
     );
+    if (!payment) {
+      payment = await Payment.findOneAndUpdate(
+        { chargeId: new RegExp(`^${chargeId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+        update,
+        { new: true }
+      );
+    }
 
-    console.log("✅ Payment updated via webhook:", payment);
+    if (!payment) {
+      console.warn("⚠️ No payment for webhook charge_id:", chargeId, "(normalized from payload)");
+    } else {
+      console.log("✅ Payment updated via webhook:", payment._id?.toString(), payment.status);
+    }
 
     return res.status(200).json({ success: true });
   } catch (err) {

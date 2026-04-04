@@ -1,5 +1,6 @@
 export class Payment {
   constructor({
+    transactionId,
     userId,
     cartId,
     amount,
@@ -10,6 +11,7 @@ export class Payment {
     status = 'pending',
     rawResponse = null
   }) {
+    this.transactionId = transactionId
     this.userId = userId
     this.cartId = cartId
     this.amount = amount
