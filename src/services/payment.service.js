@@ -5,12 +5,33 @@ import { Payment } from "../domain/payment.js"
 function chargeIdFromPaychanguInitResponse(body) {
   if (!body || typeof body !== "object") return null
   const id =
+    body.data?.transaction?.charge_id ??
+    body.data?.transaction?.chargeId ??
     body.data?.charge_id ??
     body.data?.chargeId ??
     body.charge_id ??
     body.chargeId
   if (id == null || String(id).trim() === "") return null
   return String(id).trim().toUpperCase()
+}
+
+function bankInstructionsFromPaychanguResponse(body, amount, currency) {
+  const accountDetails = body?.data?.payment_account_details ?? {}
+  const transaction = body?.data?.transaction ?? {}
+  const bankName = accountDetails.bank_name
+  const accountNumber = accountDetails.account_number
+  const accountName = accountDetails.account_name
+  const transferAmount = transaction.amount ?? amount
+  const transferCurrency = currency || "MWK"
+
+  return {
+    bankName,
+    accountNumber,
+    accountName,
+    accountExpirationTimestamp:
+      accountDetails.account_expiration_timestamp ?? null,
+    message: `Please transfer ${transferCurrency} ${transferAmount} to account ${accountNumber} at ${bankName}`,
+  }
 }
 
 export class PaymentService {
@@ -81,6 +102,62 @@ if (existing.status === "FAILED") {
   .digest("hex")
   .slice(0, 12) // shorten to 12 chars
   .toUpperCase();
+
+    if (provider === "bank") {
+      try {
+        const bankChargeId = `PC-${chargeId}`
+        const response = await this.paymentProvider.initiateBankTransfer({
+          amount,
+          currency: "MWK",
+          chargeId: bankChargeId,
+        })
+        const bankInstructions = bankInstructionsFromPaychanguResponse(
+          response,
+          amount,
+          "MWK",
+        )
+        const providerChargeId = chargeIdFromPaychanguInitResponse(response)
+        const persistedChargeId = providerChargeId ?? bankChargeId
+
+        const payment = new Payment({
+          transactionId: idempotencyKey,
+          userId,
+          cartId: cart._id,
+          amount,
+          currency: cart.currency,
+          provider,
+          operatorId: null,
+          chargeId: persistedChargeId,
+          status: response?.data?.transaction?.status ?? "pending",
+          rawResponse: {
+            ...response,
+            paymentMethod: "bank",
+            bankInstructions,
+          }
+        });
+
+        const savedPayment = await this.paymentRepository.save(payment);
+
+        idempotency.markSuccess({
+          responseBody: savedPayment,
+          responseCode: 200,
+          paymentId: savedPayment.id
+        });
+
+        await this.idempotencyRepository.save(idempotency);
+
+        return savedPayment;
+      } catch (error) {
+        idempotency.markFailure({
+          responseBody: { message: error.message },
+          responseCode: 500
+        });
+
+        await this.idempotencyRepository.save(idempotency);
+
+        throw error;
+      }
+    }
   
     const operatorId =
       provider === "airtel"

@@ -10,7 +10,13 @@ const paymentSchema = new mongoose.Schema({
   amount: { type: Number, required: false },
   currency: { type: String, required: false },
   status: { type: String, required: false },
+  confirmationSource: { type: String, required: false },
+  confirmedAt: { type: Date, required: false },
+  fallbackVerifiedAt: { type: Date, required: false },
+  webhookReceivedAt: { type: Date, required: false },
   rawResponse: { type: mongoose.Schema.Types.Mixed },
+  fallbackResponse: { type: mongoose.Schema.Types.Mixed },
+  webhookResponse: { type: mongoose.Schema.Types.Mixed },
 }, { timestamps: true });
 
 paymentSchema.index({ transactionId: 1, chargeId: 1 }, { unique: true });

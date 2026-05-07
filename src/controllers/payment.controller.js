@@ -51,7 +51,8 @@ export const createPayment = async (req, res) => {
       chargeId: payment.chargeId,
       paymentId: payment._id,
       cartId: payment.cartId,
-      paychangu: payment.rawResponse
+      paychangu: payment.provider === "bank" ? null : payment.rawResponse,
+      bankInstructions: payment.rawResponse?.bankInstructions || null
     })
   } catch (err) {
     console.error("❌ PAYMENT CREATE ERROR");
@@ -177,7 +178,7 @@ export const paymentCallback = async (req, res) => {
 export const backupPaymentConfirmation = async (req, res) => {
   try {
     const { chargeId } = req.body;
-    console.log(chargeId)
+    console.log("Backup confirmation requested:", chargeId)
 
     if (!chargeId) {
       return res.status(400).json({ message: "chargeId is required" });
@@ -201,34 +202,35 @@ export const backupPaymentConfirmation = async (req, res) => {
       });
     }
 
+    if (payment.provider === "bank") {
+      return res.status(400).json({
+        success: false,
+        message: "Bank transfer verification uses a different PayChangu endpoint",
+        payment,
+        verifiedStatus: payment.status
+      });
+    }
+
     // Only verify with Paychangu if payment is still pending
     // Verify payment status with Paychangu API
     try {
-      const verifyResponse = await axios.get(
-        `https://api.paychangu.com/verify-payment/${chargeId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.PAYCHANGU_SECRET}`,
-            "Content-Type": "application/json"
-          }
-        }
+      const paymentProvider = new PaychanguProvider(
+        process.env.PAYCHANGU_SECRET,
+        process.env.PAYCHANGU_API_URL
       );
+      const verifyData = await paymentProvider.verifyMobileMoney(chargeId);
 
-      // Check if the API call was successful
-      if (verifyResponse.status !== 200) {
-        console.warn("Paychangu verification returned non-200 status:", verifyResponse.status);
-        return res.status(400).json({
-          success: false,
-          message: "Payment verification failed - invalid response from Paychangu"
-        });
-      }
-
-      console.log("Paychangu verification response:", verifyResponse.data);
+      console.log("Paychangu verification response:", verifyData);
 
       // Extract the actual status from Paychangu's response
       // Paychangu API structure: { status: "success", message: "...", data: { status: "success", amount: ..., ... } }
-      const verifiedStatus = verifyResponse.data?.data?.status;
-      const verifiedAmount = verifyResponse.data?.data?.amount;
+      const verifiedStatus =
+        verifyData?.data?.transaction?.status ??
+        verifyData?.data?.status ??
+        verifyData?.status;
+      const verifiedAmount =
+        verifyData?.data?.transaction?.amount ??
+        verifyData?.data?.amount;
 
       // Only update if we got a valid status from Paychangu
       if (!verifiedStatus) {
@@ -241,21 +243,47 @@ export const backupPaymentConfirmation = async (req, res) => {
 
       // Update payment with verified status from Paychangu (not client-provided status)
       const updated = await Payment.findOneAndUpdate(
-        { chargeId },
+        {
+          chargeId,
+          status: { $nin: ["success", "completed"] }
+        },
         { 
           status: verifiedStatus,
           amount: verifiedAmount || payment.amount,
-          rawResponse: verifyResponse.data,
+          rawResponse: verifyData,
+          fallbackResponse: verifyData,
+          confirmationSource:
+            verifiedStatus === "success" || verifiedStatus === "completed"
+              ? "fallback"
+              : payment.confirmationSource,
+          confirmedAt:
+            verifiedStatus === "success" || verifiedStatus === "completed"
+              ? new Date()
+              : payment.confirmedAt,
+          fallbackVerifiedAt: new Date(),
           fallback: true 
         },
         { new: true }
       );
 
+      const finalPayment = updated || await Payment.findOne({ chargeId });
+
+      if (!updated) {
+        console.log("Backup verification completed, but payment was already terminal:", chargeId);
+      } else {
+        console.log("Payment updated by backup confirmation:", {
+          id: updated._id?.toString(),
+          chargeId: updated.chargeId,
+          status: updated.status,
+          confirmationSource: updated.confirmationSource,
+        });
+      }
+
       return res.status(200).json({
         success: true,
         message: "Payment verified and updated using fallback",
-        payment: updated,
-        verifiedStatus
+        payment: finalPayment,
+        verifiedStatus: finalPayment?.status || verifiedStatus
       });
 
     } catch (verifyError) {
