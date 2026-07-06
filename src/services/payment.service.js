@@ -162,7 +162,7 @@ if (existing.status === "FAILED") {
     const operatorId =
       provider === "airtel"
         ? "20be6c20-adeb-4b5b-a7ba-0769820df4fb"
-        : "c2be9bd0-a8b4-4fbd-9966-1b7cfe00a343";
+        : "27494cb5-ba9e-437f-a114-4e7a7686bcca";
   
     try {
       const response = await this.paymentProvider.initiateMobileMoney({
